@@ -6,7 +6,7 @@ import requests
 from pprint import pprint
 from bs4 import BeautifulSoup
 from utils import *
-
+from Player_form import *
 def get_all_match_urls(season):
     '''
     Get match URLS and basic details from a list of links for each season.
@@ -80,16 +80,22 @@ def debut_player_rajat_patidar(debut_url):
     r = requests.get(debut_url)
     soup = BeautifulSoup(r.content, 'lxml')
     pers_record={
+        'player_name':[],
         'pers_runs': [],
+        'pers_runs_int': [],
         'bowling_record':[],
         'venue': [],
         'format': [],
     }
+    pers_record['player_name'].append(soup.find('div', {"class":'player-card__details'}).h2.text)
     for table in soup('table'):
         i=0
         for i in range(10):
             if table.get('class',[]) and 'table' in table['class']:
                 pers_record['pers_runs'].append(table.tbody('tr')[i]('td')[1].text)
+                pers_record['pers_runs'] = [int(s) for s in re.findall(r'-?\d+\.?\d*', str(pers_record['pers_runs']))]
+                pers_record['pers_runs_int'] = list(map(int,pers_record['pers_runs']))
+                pers_record['pers_runs_int']=sum(pers_record['pers_runs_int'])
                 if(table('tr')[0]('th')[2].text=='BOWL'):
                     pers_record['bowling_record'].append(table.tbody('tr')[i]('td')[2].text)
                     pers_record['venue'].append(table.tbody('tr')[i]('td')[4].text)
@@ -182,8 +188,16 @@ def ipl_season_csv():
     data = []
     header_meta = ['season', 'match', 'status', 'toss-team', 'toss-decision', 'venue','mom']
     metadata = []
-    header_debut = ['runs','bowling-stats','stadium','format']
+    header_debut = ['player_name','runs','bowling-stats','stadium','format']
     personal_record=[]
+    i=0
+    for i in range(96):
+        url = players_url[i]
+        pers_data_recieve=debut_player_rajat_patidar(url)
+        personal_record.append([pers_data_recieve['player_name'],pers_data_recieve['pers_runs_int'],pers_data_recieve['bowling_record'],pers_data_recieve['venue'],pers_data_recieve['format']])
+    # for i in range(10):
+    #    personal_record[i].append([pers_data_recieve['pers_runs'][i],pers_data_recieve['bowling_record'][i],pers_data_recieve['venue'][i],pers_data_recieve['format'][i]])
+    
     for season in season_url:
         print(f'Season - {season}')
         matches = get_all_match_urls(season)
@@ -194,11 +208,7 @@ def ipl_season_csv():
             metadata.append([match['season'], match['number'], match['status'], *get_toss_info(scorecard['toss']), scorecard['stadium'], scorecard['mom']])
             data.extend(process_players(match,scorecard))
 
-    pers_data_recieve=debut_player_rajat_patidar('https://www.espncricinfo.com/player/rohit-sharma-34102/matches')
-    i=0
-   # for i in range(10):
-    #    personal_record[i].append([pers_data_recieve['pers_runs'][i],pers_data_recieve['bowling_record'][i],pers_data_recieve['venue'][i],pers_data_recieve['format'][i]])
-    personal_record.append([pers_data_recieve['pers_runs'],pers_data_recieve['bowling_record'],pers_data_recieve['venue'],pers_data_recieve['format']])
+    
     with open('data-match.csv', 'w') as f:
         writer = csv.writer(f)
         writer.writerow(header)
